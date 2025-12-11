@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>External LED API Controller</title>
+  <style>
+    body { font-family: Arial; text-align: center; margin-top: 50px; background-color: #222; color: white; }
+    h1 { color: #00d2ff; }
+    .status-box { margin: 20px; padding: 10px; border: 1px solid #00d2ff; border-radius: 5px; }
+    .btn { background-color: #444; border: none; color: white; padding: 15px 32px; 
+           text-align: center; text-decoration: none; display: inline-block; 
+           font-size: 16px; margin: 4px 2px; cursor: pointer; border-radius: 10px; }
+    .btn-on { background-color: #4CAF50; }
+    .btn-off { background-color: #f44336; }
+    .btn-mode { background-color: #008CBA; }
+    input[type=range] { width: 80%; }
+  </style>
+</head>
+<body>
+  <h1>External LED API Controller</h1>
+  
+  <div class="status-box">
+    Status: <span id="currentStatus">...</span> | Mode: <span id="currentMode">...</span>
+  </div>
+
+  <p>Power Control</p>
+  <button class="btn btn-on" onclick="sendApiCall('/api/on')">ON</button>
+  <button class="btn btn-off" onclick="sendApiCall('/api/off')">OFF</button>
+
+  <p>Brightness</p>
+  <input type="range" min="0" max="255" value="255" id="brightnessSlider" onmouseup="setBrightness(this.value)">
+  
+  <p>Modes</p>
+  <button class="btn btn-mode" onclick="sendApiCall('/api/mode?name=STATIC')">Static</button>
+  <button class="btn btn-mode" onclick="sendApiCall('/api/mode?name=BLINK')">Blink (0.5s)</button>
+  <button class="btn btn-mode" onclick="sendApiCall('/api/mode?name=FADE')">Fade Loop (Breathing)</button>
+
+  <script>
+    // ********************************************
+    // *** แก้ไข IP Address ตรงนี้เป็นของ ESP32 ***
+    // ********************************************
+    const ESP32_IP = "192.168.236.226"; // ตัวอย่าง
+    // ********************************************
+
+    function sendApiCall(endpoint) {
+      const url = `http://${ESP32_IP}${endpoint}`;
+      fetch(url)
+        .then(response => response.json()) // รับ Response เป็น JSON
+        .then(data => {
+          console.log('Success:', data);
+          updateUIStatus(); // อัปเดตสถานะหลังส่งคำสั่งสำเร็จ
+        })
+        .catch((error) => {
+          console.error('Error sending API call:', error);
+          alert('Failed to connect to ESP32 API. Check IP or WiFi.');
+        });
+    }
+
+    function setBrightness(val) {
+      sendApiCall(`/api/brightness?value=${val}`);
+    }
+
+    function updateUIStatus() {
+      fetch(`http://${ESP32_IP}/api/status`)
+        .then(response => response.json())
+        .then(data => {
+          document.getElementById('currentStatus').innerText = data.is_on ? 'ON' : 'OFF';
+          document.getElementById('currentMode').innerText = data.mode;
+          // ตั้งค่า Slider ให้ตรงกับสถานะล่าสุด (ถ้าต้องการ)
+          // document.getElementById('brightnessSlider').value = data.brightness; 
+        })
+        .catch((error) => {
+          console.error('Error fetching status:', error);
+          document.getElementById('currentStatus').innerText = 'DISCONNECTED';
+          document.getElementById('currentMode').innerText = 'N/A';
+        });
+    }
+
+    // เรียกอัปเดตสถานะทุก 2 วินาทีเพื่อให้สถานะบนเว็บตรงกับบอร์ด
+    setInterval(updateUIStatus, 2000); 
+
+    // อัปเดตสถานะทันทีเมื่อเปิดหน้าเว็บ
+    window.onload = updateUIStatus;
+  </script>
+</body>
+</html>
